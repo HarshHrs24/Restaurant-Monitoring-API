@@ -37,12 +37,14 @@ def trigger_report():
     # Generate a unique report ID
     report_id = str(uuid.uuid4())
 
+    print("Recieved get request- '/trigger_report")
+    print("Report id :",report_id)
     # Initialize the task status as 'Running' and set data to None
-    report_tasks[report_id] = {'status': 'Running', 'data': None}
+    report_tasks[report_id] = {'status': 'Running'}
 
     # Start the report generation process asynchronously
     report_generator.generate_report_async(report_id, report_tasks)
-
+    
     # Return the report ID as a JSON response
     return jsonify({'report_id': report_id})
 

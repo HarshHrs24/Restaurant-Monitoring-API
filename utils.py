@@ -144,6 +144,10 @@ def calculate_uptime_downtime(store_id, store_status, time_ranges,tp):
 
             next_status_change = min(next_status_changes, default=[end_time, last_status], key=lambda x: x[0])
 
+            # To ensure next_status_changes doesn't exceeds end_time
+            if next_status_change[0]>end_time: 
+                next_status_change[0]=end_time
+                
             # Calculate the time difference between the current time and the next status change
             time_diff = (next_status_change[0] - current_time).total_seconds()
  

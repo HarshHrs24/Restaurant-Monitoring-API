@@ -34,7 +34,7 @@ def get_time_ranges_for_store(store_id, business_hours, store_timezones, start_d
     current_date = start_date
     print("timezone :" ,timezone_str )
      # Iterate over each day within the specified date range
-    while current_date < end_date:
+    while current_date <= end_date:
          # Get the business hours for the current day
         start_time_local, end_time_local = get_business_hours_for_day(store_id, current_date, business_hours)
         
@@ -153,22 +153,12 @@ def calculate_uptime_downtime(store_id, store_status, time_ranges,tp):
                                 for (status_time, status) in store_status[store_id]]
 
         # Initialize last_status based on the first known status before start_time or default to 'inactive'
-        last_status_entries = [(status_time, status) for status_time, status in aware_status_times if status_time < start_time]
+        last_status_entries = [[status_time, status] for status_time, status in aware_status_times if status_time < start_time]
         print("length of last_status",len(last_status_entries))
         last_status = last_status_entries[-1][1] if last_status_entries else 'inactive'
         print(last_status)
 
-        if len(last_status_entries) == 0:
-            continue
-        elif tp=='h' and last_status_entries[-1][0] and (start_time-last_status_entries[-1][0]).total_seconds()>3600:
-            print("no status had been recorded in the last one hour")        
-            continue
-        elif tp=='d' and last_status_entries[-1][0] and (start_time-last_status_entries[-1][0]).total_seconds()>86400:
-            print("no status had been recorded in the last one day")  
-            continue
-        elif tp=='w' and last_status_entries[-1][0] and (start_time-last_status_entries[-1][0]).total_seconds()>604800:
-            print("no status had been recorded in the last one week")  
-            continue
+
         print("starting iteration within above given time range")
         while current_time < end_time:
             # Find the nearest status change or use the last known status
@@ -181,6 +171,31 @@ def calculate_uptime_downtime(store_id, store_status, time_ranges,tp):
             if next_status_change[0]>end_time: 
                 next_status_change[0]=end_time
             print("nearest status change :",next_status_change[0])
+       
+            if len(last_status_entries) == 0:
+                current_time=next_status_change[0]
+                last_status = next_status_change[1]
+                continue
+            elif tp=='h' and last_status_entries[-1][0] and (current_time-last_status_entries[-1][0]).total_seconds()>3600:
+                last_status_entries[-1][0]=current_time
+                current_time=next_status_change[0]
+                last_status = next_status_change[1]
+                print("no status had been recorded in the last one hour")        
+                continue
+            elif tp=='d' and last_status_entries[-1][0] and (current_time-last_status_entries[-1][0]).total_seconds()>86400:
+                last_status_entries[-1][0]=current_time
+                current_time=next_status_change[0]
+                last_status = next_status_change[1]
+                print("no status had been recorded in the last one day")  
+                continue
+            elif tp=='w' and last_status_entries[-1][0] and (current_time-last_status_entries[-1][0]).total_seconds()>604800:
+                last_status_entries[-1][0]=current_time
+                current_time=next_status_change[0]
+                last_status = next_status_change[1]
+                print("no status had been recorded in the last one week")  
+
+            
+
             # Calculate the time difference between the current time and the next status change
             time_diff = (next_status_change[0] - current_time).total_seconds()
 
@@ -193,6 +208,7 @@ def calculate_uptime_downtime(store_id, store_status, time_ranges,tp):
             print("updated downtime in seconds",downtime)
 
             # Update current_time and last_status for the next iteration
+            last_status_entries[-1][0]=current_time
             current_time=next_status_change[0]
             last_status = next_status_change[1]
             print("updated current_time",current_time)

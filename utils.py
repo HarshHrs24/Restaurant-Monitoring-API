@@ -32,12 +32,11 @@ def get_time_ranges_for_store(store_id, business_hours, store_timezones, start_d
      # Get the timezone for the store or default to 'America/Chicago'
     timezone_str = store_timezones.get(store_id, 'America/Chicago')
     current_date = start_date
-
      # Iterate over each day within the specified date range
-    while current_date < end_date:
+    while current_date <= end_date:
          # Get the business hours for the current day
         start_time_local, end_time_local = get_business_hours_for_day(store_id, current_date, business_hours)
-
+        
          # Combine the current date with the start and end times
         start_datetime_local = datetime.combine(current_date, start_time_local)
         end_datetime_local = datetime.combine(current_date, end_time_local)
@@ -50,6 +49,8 @@ def get_time_ranges_for_store(store_id, business_hours, store_timezones, start_d
         start_datetime_utc = get_utc_from_local(start_datetime_local, timezone_str)
         end_datetime_utc = get_utc_from_local(end_datetime_local, timezone_str)
 
+        
+
         # Make start_date and end_date timezone-aware if they are not
         if start_date.tzinfo is None:
             start_date = start_date.replace(tzinfo=pytz.utc)
@@ -61,7 +62,7 @@ def get_time_ranges_for_store(store_id, business_hours, store_timezones, start_d
             start_datetime_utc = start_date
         if end_datetime_utc > end_date:
             end_datetime_utc = end_date
-        
+       
         # Remove timezone info for comparison
         start_date = start_date.astimezone(pytz.utc).replace(tzinfo=None)
         end_date = end_date.astimezone(pytz.utc).replace(tzinfo=None)
@@ -73,6 +74,7 @@ def get_time_ranges_for_store(store_id, business_hours, store_timezones, start_d
 
 # Calculate the uptime and downtime for a store based on its status history and business hours
 def calculate_report(store_status, business_hours, store_timezones):
+
     # Get the current time in UTC and calculate times for the last hour, day, and week
     # current_utc = datetime.utcnow()
     current_utc = datetime(2023, 1, 24, 23, 7, 9, 515535)
@@ -84,14 +86,17 @@ def calculate_report(store_status, business_hours, store_timezones):
     last_week = datetime(2023, 1, 17, 23, 7, 9, 515535)
 
 
+
+
     report = []
 
     # Iterate over each store
     for store_id in store_status:
 
         # Get the time ranges for the last hour, day, and week
+        
         time_ranges_hour = get_time_ranges_for_store(store_id, business_hours, store_timezones, last_hour, current_utc)
-        time_ranges_day = get_time_ranges_for_store(store_id, business_hours, store_timezones, last_day, current_utc)
+        time_ranges_day = get_time_ranges_for_store(store_id, business_hours, store_timezones, last_day, current_utc)     
         time_ranges_week = get_time_ranges_for_store(store_id, business_hours, store_timezones, last_week, current_utc)
 
         # # Calculate uptime and downtime for each period
@@ -99,6 +104,7 @@ def calculate_report(store_status, business_hours, store_timezones):
         uptime_day, downtime_day = calculate_uptime_downtime(store_id, store_status, time_ranges_day,'d')
         uptime_week, downtime_week = calculate_uptime_downtime(store_id, store_status, time_ranges_week,'w')
 
+  
         # Append the calculated data to the report
         report.append({
             'store_id': store_id,
@@ -118,22 +124,16 @@ def calculate_uptime_downtime(store_id, store_status, time_ranges,tp):
     downtime = 0
 
     for start_time, end_time in time_ranges:
+   
         current_time = start_time
+
         aware_status_times = [(status_time.replace(tzinfo=pytz.utc), status) 
                                 for (status_time, status) in store_status[store_id]]
 
         # Initialize last_status based on the first known status before start_time or default to 'inactive'
-        last_status_entries = [(status_time, status) for status_time, status in aware_status_times if status_time < start_time]
-        last_status = last_status_entries[-1][1] if last_status_entries else 'inactive'
+        last_status_entries = [[status_time, status] for status_time, status in aware_status_times if status_time < start_time]
 
-        if len(last_status_entries) == 0:
-            continue
-        elif tp=='h' and last_status_entries[-1][0] and (start_time-last_status_entries[-1][0]).total_seconds()>3600:        
-            continue
-        elif tp=='d' and last_status_entries[-1][0] and (start_time-last_status_entries[-1][0]).total_seconds()>86400:
-            continue
-        elif tp=='w' and last_status_entries[-1][0] and (start_time-last_status_entries[-1][0]).total_seconds()>604800:
-            continue
+        last_status = last_status_entries[-1][1] if last_status_entries else 'inactive'
 
         while current_time < end_time:
             # Find the nearest status change or use the last known status
@@ -141,24 +141,48 @@ def calculate_uptime_downtime(store_id, store_status, time_ranges,tp):
             for status_time, status in aware_status_times:
                 if status_time > current_time:
                     next_status_changes.append([status_time, status])
-
             next_status_change = min(next_status_changes, default=[end_time, last_status], key=lambda x: x[0])
-
-            # To ensure next_status_changes doesn't exceeds end_time
+            # checker to ensure next_status_changes doesn't exceeds end_time
             if next_status_change[0]>end_time: 
                 next_status_change[0]=end_time
-                
+            
+       
+            if len(last_status_entries) == 0:
+                current_time=next_status_change[0]
+                last_status = next_status_change[1]
+                continue
+            elif tp=='h' and last_status_entries[-1][0] and (current_time-last_status_entries[-1][0]).total_seconds()>3600:
+                last_status_entries[-1][0]=current_time
+                current_time=next_status_change[0]
+                last_status = next_status_change[1]       
+                continue
+            elif tp=='d' and last_status_entries[-1][0] and (current_time-last_status_entries[-1][0]).total_seconds()>86400:
+                last_status_entries[-1][0]=current_time
+                current_time=next_status_change[0]
+                last_status = next_status_change[1]
+                continue
+            elif tp=='w' and last_status_entries[-1][0] and (current_time-last_status_entries[-1][0]).total_seconds()>604800:
+                last_status_entries[-1][0]=current_time
+                current_time=next_status_change[0]
+                last_status = next_status_change[1]
+
+            
+
             # Calculate the time difference between the current time and the next status change
             time_diff = (next_status_change[0] - current_time).total_seconds()
- 
+
             if last_status == 'active':
                 uptime += time_diff
             else:  # Assuming any status other than 'active' implies 'inactive'
                 downtime += time_diff
+                
 
             # Update current_time and last_status for the next iteration
+            last_status_entries[-1][0]=current_time
             current_time=next_status_change[0]
             last_status = next_status_change[1]
+
+
 
 
     # Convert seconds to hours

@@ -23,7 +23,7 @@ def generate_report(report_id, report_tasks):
         # Calculate the report based on the fetched data
         # This involves determining uptime and downtime for each store
         report = utils.calculate_report(store_status, business_hours, store_timezones)
-
+        print('Complete')
         # Once the report is calculated, update the task status to 'Complete'
         # and store the report data in the report_tasks dictionary
         report_tasks[report_id]['status'] = 'Complete'
